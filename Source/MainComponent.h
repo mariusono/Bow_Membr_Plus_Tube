@@ -106,7 +106,7 @@ private:
     std::vector<double> I_M; // interpolant grid
     std::vector<double> J_M; // spreading function grid
 
-
+    std::vector<std::vector<double>> locsDo;
 
 
     // TUBE PARAMETERS
@@ -182,7 +182,7 @@ private:
 
 
 
-    // pointers to STRING states
+    // pointers to MEMBRANE states
     std::vector<double*> u;
 
     // states
@@ -191,7 +191,7 @@ private:
     double* uTmp = nullptr;
 
 
-    // pointers to PLATE states
+    // pointers to TUBE states
     std::vector<double*> w;
 
     // states

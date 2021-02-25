@@ -28,7 +28,7 @@ MainComponent::MainComponent()
 
     // Sliders !
     addAndMakeVisible(frequencySlider);
-    frequencySlider.setRange(50.0, 650.0);          // [1]
+    frequencySlider.setRange(30.0, 650.0);          // [1]
     frequencySlider.setTextValueSuffix(" Hz");     // [2]
     frequencySlider.addListener(this);             // [3]
 
@@ -266,9 +266,44 @@ void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate
     // Recalculate h_membrane:
     h_membrane = L_membrane / N_membrane;
 
-    //  IMPORTANT: TO ADD CIRCULAR GRID SELECTION ! SEE: circular grid points section in Matlab code
+    //  CIRCULAR GRID SELECTION 
+    std::vector<double> xVec(N_membrane * N_membrane); // what is the difference to xVec(N_membrane,0); ?
+    std::vector<double> yVec(N_membrane * N_membrane);
+    std::vector<double> selLoc(2);
+    double radius_circ = N_membrane / 2 - 2.5;
+    double circ_center_x = floor(N_membrane * 0.5);
+    double circ_center_y = floor(N_membrane * 0.5);
+    //locsDo.resize(N_membrane * N_membrane,0);
+    //v1.push_back(0);
+
+    int idx_x_y;
+    for (int iX = 0; iX < N_membrane; ++iX)
+    {
+        for (int iY = 0; iY < N_membrane; ++iY)
+        {
+            idx_x_y = (iY)+(iX)*N_membrane;
+            xVec[idx_x_y] = iX;
+            yVec[idx_x_y] = iY;
+        }
+    }
 
 
+    for (int iX = 0; iX < N_membrane; ++iX)
+    {
+        for (int iY = 0; iY < N_membrane; ++iY)
+        {
+            idx_x_y = (iY)+(iX)*N_membrane;
+
+            if ((xVec[idx_x_y] - circ_center_x) * (xVec[idx_x_y] - circ_center_x) + (yVec[idx_x_y] - circ_center_y) * (yVec[idx_x_y] - circ_center_y) < radius_circ * radius_circ) {
+                selLoc[0] = iX;
+                selLoc[1] = iY;
+
+                locsDo.push_back(selLoc);
+            }
+        }
+    }
+
+    Logger::getCurrentLogger()->outputDebugString("locsDo size: (" + String(locsDo.size()) + ")");
 
     // TUBE STUFF:  (this can be ported to a Tube class..)
 
@@ -314,7 +349,7 @@ void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate
         H2[i] = H1[i- floor(N_membrane / 4)];
     }
 
-    int idx_x_y;
+    //int idx_x_y;
     for (int iX = 0; iX < N_membrane; ++iX)
     {
         for (int iY = 0; iY < N_membrane; ++iY)
@@ -820,40 +855,76 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 
                 // Update equations:
 
-                for (int iX = 1; iX < N_membrane - 1; ++iX)
+                for (int iLoc = 0; iLoc < locsDo.size(); ++iLoc) 
                 {
-                    for (int iY = 1; iY < N_membrane - 1; ++iY)
-                    {
-                        idx_x = iY + (iX)*N_membrane;
-                        idx_x_p1 = iY + (iX + 1) * N_membrane;
-                        idx_x_p2 = iY + (iX + 2) * N_membrane;
-                        idx_x_m1 = iY + (iX - 1) * N_membrane;
-                        idx_x_m2 = iY + (iX - 2) * N_membrane;
-                        idx_y = iY + (iX)*N_membrane;
-                        idx_y_p1 = (iY + 1) + (iX)*N_membrane;
-                        idx_y_p2 = (iY + 2) + (iX)*N_membrane;
-                        idx_y_m1 = (iY - 1) + (iX)*N_membrane;
-                        idx_y_m2 = (iY - 2) + (iX)*N_membrane;
+                    int iX = locsDo[iLoc][0];
+                    int iY = locsDo[iLoc][1];
 
-                        idx_x_p1_y_p1 = (iY + 1) + (iX + 1) * N_membrane;
-                        idx_x_p1_y = (iY)+(iX + 1) * N_membrane;
-                        idx_x_p1_y_m1 = (iY - 1) + (iX + 1) * N_membrane;
-                        idx_x_y_p1 = (iY + 1) + (iX)*N_membrane;
-                        idx_x_y = (iY)+(iX)*N_membrane;
-                        idx_x_y_m1 = (iY - 1) + (iX)*N_membrane;
-                        idx_x_m1_y_p1 = (iY + 1) + (iX - 1) * N_membrane;
-                        idx_x_m1_y = (iY)+(iX - 1) * N_membrane;
-                        idx_x_m1_y_m1 = (iY - 1) + (iX - 1) * N_membrane;
+                    idx_x = iY + (iX)*N_membrane;
+                    idx_x_p1 = iY + (iX + 1) * N_membrane;
+                    idx_x_p2 = iY + (iX + 2) * N_membrane;
+                    idx_x_m1 = iY + (iX - 1) * N_membrane;
+                    idx_x_m2 = iY + (iX - 2) * N_membrane;
+                    idx_y = iY + (iX)*N_membrane;
+                    idx_y_p1 = (iY + 1) + (iX)*N_membrane;
+                    idx_y_p2 = (iY + 2) + (iX)*N_membrane;
+                    idx_y_m1 = (iY - 1) + (iX)*N_membrane;
+                    idx_y_m2 = (iY - 2) + (iX)*N_membrane;
 
-
-                        u[0][idx_x_y] = (k * k / (1 + sig0 * k)) * ((c_membrane * c_membrane / (h_membrane * h_membrane)) * (u[1][idx_x_p1] + u[1][idx_x_m1] + u[1][idx_y_p1] + u[1][idx_y_m1] - 4 * u[1][idx_x_y])
-                                      + (2 * sig1 / k) * (1 / (h_membrane * h_membrane)) * (u[1][idx_x_p1] + u[1][idx_x_m1] + u[1][idx_y_p1] + u[1][idx_y_m1] - 4 * u[1][idx_x_y] - (u[2][idx_x_p1] + u[2][idx_x_m1] + u[2][idx_y_p1] + u[2][idx_y_m1] - 4 * u[2][idx_x_y])) 
-                                      - J_B[idx_x_y] * Fbow / (rho_membrane * H_membrane) + J_M[idx_x_y] * F / (rho_membrane * H_membrane)
-                                      + (2 / (k * k)) * u[1][idx_x_y] - (1 - sig0 * k) * u[2][idx_x_y] / (k * k));
+                    idx_x_p1_y_p1 = (iY + 1) + (iX + 1) * N_membrane;
+                    idx_x_p1_y = (iY)+(iX + 1) * N_membrane;
+                    idx_x_p1_y_m1 = (iY - 1) + (iX + 1) * N_membrane;
+                    idx_x_y_p1 = (iY + 1) + (iX)*N_membrane;
+                    idx_x_y = (iY)+(iX)*N_membrane;
+                    idx_x_y_m1 = (iY - 1) + (iX)*N_membrane;
+                    idx_x_m1_y_p1 = (iY + 1) + (iX - 1) * N_membrane;
+                    idx_x_m1_y = (iY)+(iX - 1) * N_membrane;
+                    idx_x_m1_y_m1 = (iY - 1) + (iX - 1) * N_membrane;
 
 
-                    }
+                    u[0][idx_x_y] = (k * k / (1 + sig0 * k)) * ((c_membrane * c_membrane / (h_membrane * h_membrane)) * (u[1][idx_x_p1] + u[1][idx_x_m1] + u[1][idx_y_p1] + u[1][idx_y_m1] - 4 * u[1][idx_x_y])
+                        + (2 * sig1 / k) * (1 / (h_membrane * h_membrane)) * (u[1][idx_x_p1] + u[1][idx_x_m1] + u[1][idx_y_p1] + u[1][idx_y_m1] - 4 * u[1][idx_x_y] - (u[2][idx_x_p1] + u[2][idx_x_m1] + u[2][idx_y_p1] + u[2][idx_y_m1] - 4 * u[2][idx_x_y]))
+                        - J_B[idx_x_y] * Fbow / (rho_membrane * H_membrane) + J_M[idx_x_y] * F / (rho_membrane * H_membrane)
+                        + (2 / (k * k)) * u[1][idx_x_y] - (1 - sig0 * k) * u[2][idx_x_y] / (k * k));
+
                 }
+
+
+                //// Calculate on the whole grid! 
+                //for (int iX = 1; iX < N_membrane - 1; ++iX)
+                //{
+                //    for (int iY = 1; iY < N_membrane - 1; ++iY)
+                //    {
+                //        idx_x = iY + (iX)*N_membrane;
+                //        idx_x_p1 = iY + (iX + 1) * N_membrane;
+                //        idx_x_p2 = iY + (iX + 2) * N_membrane;
+                //        idx_x_m1 = iY + (iX - 1) * N_membrane;
+                //        idx_x_m2 = iY + (iX - 2) * N_membrane;
+                //        idx_y = iY + (iX)*N_membrane;
+                //        idx_y_p1 = (iY + 1) + (iX)*N_membrane;
+                //        idx_y_p2 = (iY + 2) + (iX)*N_membrane;
+                //        idx_y_m1 = (iY - 1) + (iX)*N_membrane;
+                //        idx_y_m2 = (iY - 2) + (iX)*N_membrane;
+
+                //        idx_x_p1_y_p1 = (iY + 1) + (iX + 1) * N_membrane;
+                //        idx_x_p1_y = (iY)+(iX + 1) * N_membrane;
+                //        idx_x_p1_y_m1 = (iY - 1) + (iX + 1) * N_membrane;
+                //        idx_x_y_p1 = (iY + 1) + (iX)*N_membrane;
+                //        idx_x_y = (iY)+(iX)*N_membrane;
+                //        idx_x_y_m1 = (iY - 1) + (iX)*N_membrane;
+                //        idx_x_m1_y_p1 = (iY + 1) + (iX - 1) * N_membrane;
+                //        idx_x_m1_y = (iY)+(iX - 1) * N_membrane;
+                //        idx_x_m1_y_m1 = (iY - 1) + (iX - 1) * N_membrane;
+
+
+                //        u[0][idx_x_y] = (k * k / (1 + sig0 * k)) * ((c_membrane * c_membrane / (h_membrane * h_membrane)) * (u[1][idx_x_p1] + u[1][idx_x_m1] + u[1][idx_y_p1] + u[1][idx_y_m1] - 4 * u[1][idx_x_y])
+                //                      + (2 * sig1 / k) * (1 / (h_membrane * h_membrane)) * (u[1][idx_x_p1] + u[1][idx_x_m1] + u[1][idx_y_p1] + u[1][idx_y_m1] - 4 * u[1][idx_x_y] - (u[2][idx_x_p1] + u[2][idx_x_m1] + u[2][idx_y_p1] + u[2][idx_y_m1] - 4 * u[2][idx_x_y])) 
+                //                      - J_B[idx_x_y] * Fbow / (rho_membrane * H_membrane) + J_M[idx_x_y] * F / (rho_membrane * H_membrane)
+                //                      + (2 / (k * k)) * u[1][idx_x_y] - (1 - sig0 * k) * u[2][idx_x_y] / (k * k));
+
+
+                //    }
+                //}
 
 
                 int idx_p2;
